@@ -3,15 +3,17 @@ import sys
 import vlc
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QListWidget,
-    QVBoxLayout, QHBoxLayout, QLabel, QFileDialog
+    QVBoxLayout, QHBoxLayout, QLabel, QFileDialog,
+    QListWidgetItem
 )
+from PyQt6.QtCore import QTimer
 
 # VLC directory 
 os.add_dll_directory(r"C:\Program Files\VideoLAN\VLC")
 
 # VLC player instance
 player = vlc.MediaPlayer()
-
+current_song_path = None 
 
 app = QApplication(sys.argv)
 window = QWidget()
@@ -27,7 +29,20 @@ play_btn = QPushButton("𝄞 Play")
 pause_btn = QPushButton("♫ Pause")
 stop_btn = QPushButton("■ Stop")
 
+listening_label = QLabel("Listening time: 00:00:00")
+listening_label.setStyleSheet("font-size: 14px;")
+
+player = vlc.MediaPlayer()
+current_song_path = None
+
+listening_seconds = 0
+
+timer = QTimer()
+timer.setInterval(1000)  # 1 second
+
 song_list = QListWidget()
+
+
 
 # functions
 def add_song():
@@ -37,28 +52,66 @@ def add_song():
         "",
         "Audio Files (*.mp3 *.wav *.ogg);;All files (*)"
     )
-    for file in files:
-        song_list.addItem(file)
+    for file_path in files:
+        item = QListWidgetItem(os.path.basename(file_path))
+        item.setData(256, file_path)
+        song_list.addItem(item)
 
 def play_song():
-    current_item = song_list.currentItem()
-    if current_item:
-        file_path = current_item.text()
-        player.stop()  # Stop any currently playing song
-        player.set_mrl(file_path)
-        player.play()
+    global current_song_path
 
+    item = song_list.currentItem()
+    if not item:
+        return
+    
+    file_path = item.data(256)
+
+    if current_song_path != file_path:
+        player.stop()
+        media = vlc.Media(file_path)
+        player.set_media(media)
+        current_song_path = file_path
+    
+
+    
+
+    player.play()
+
+    if not timer.isActive():
+        timer.start()
+       
 def pause_song():
-    player.pause()
+    if player.is_playing():
+        player.pause()
+        timer.stop()
 
 def stop_song():
     player.stop()
+
+
+def update_listening_time():
+    global listening_seconds
+    listening_seconds += 1
+
+    hours = listening_seconds // 3600
+    minutes = (listening_seconds % 3600) // 60
+    seconds = listening_seconds % 60 
+
+    listening_label.setText(
+        f"Listening time: {hours:02d}:{minutes:02d}:{seconds:02d}"
+    )
+timer.timeout.connect(update_listening_time)
+
 
 # buttons
 add_song_btn.clicked.connect(add_song)
 play_btn.clicked.connect(play_song)
 pause_btn.clicked.connect(pause_song)
 stop_btn.clicked.connect(stop_song)
+play_btn.clicked.connect(play_song)
+pause_btn.clicked.connect(pause_song)
+song_list.itemDoubleClicked.connect(play_song)
+
 
 # layout
 top_layout = QHBoxLayout()
@@ -74,6 +127,7 @@ main_layout = QVBoxLayout()
 main_layout.addWidget(title)
 main_layout.addLayout(top_layout)
 main_layout.addWidget(song_list)
+main_layout.addWidget(listening_label)
 main_layout.addLayout(control_layout)
 
 window.setLayout(main_layout)
