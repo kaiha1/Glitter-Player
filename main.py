@@ -1,12 +1,45 @@
 import os
 import sys
 import vlc
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QListWidget,
     QVBoxLayout, QHBoxLayout, QLabel, QFileDialog,
-    QListWidgetItem
+    QListWidgetItem, QMainWindow, QToolBar, QStatusBar, QInputDialog,
+    QMenu
 )
 from PyQt6.QtCore import QTimer
+
+playlists = {}
+current_playlist = None 
+
+themes = {
+    "Black": """
+        QWidget { background-color: #121212; color: white; }
+        QPushButton { background-color: #59D2FE; color: #0b1c2d; }
+    """,
+
+    "Pink": """
+        QWidget { background-color: #1b0f17; color: #ffd6e8; }
+        QPushButton { background-color: #ff7eb6; color: #1b0f17; }
+    """,
+
+    "Blue": """
+        QWidget { background-color: #0b1c2d; color: #cfe9ff; }
+        QPushButton { background-color: #59D2FE; color: #0b1c2d; }
+    """,
+
+    "Purple": """
+        QWidget { background-color: #1a1026; color: #e6d9ff; }
+        QPushButton { background-color: #9b7bff; color: #1a1026; }
+    """,
+
+    "White": """
+        QWidget { background-color: #f4f4f4; color: #111; }
+        QPushButton { background-color: #222; color: white; }
+    """
+}
 
 # VLC directory 
 os.add_dll_directory(r"C:\Program Files\VideoLAN\VLC")
@@ -16,7 +49,8 @@ player = vlc.MediaPlayer()
 current_song_path = None 
 
 app = QApplication(sys.argv)
-window = QWidget()
+
+window = QMainWindow()
 window.setWindowTitle("GlitterMusic")
 window.resize(900, 600)
 
@@ -88,6 +122,9 @@ def pause_song():
 def stop_song():
     player.stop()
 
+def apply_theme(name):
+    if name in themes:
+        window.setStyleSheet(themes[name])
 
 def update_listening_time():
     global listening_seconds
@@ -101,6 +138,27 @@ def update_listening_time():
         f"Listening time: {hours:02d}:{minutes:02d}:{seconds:02d}"
     )
 timer.timeout.connect(update_listening_time)
+
+def create_playlist():
+    global playlists
+
+    name, ok = QInputDialog.getText(
+        window,
+        "New Playlist",
+        "Playlist name:"
+    )
+
+    if not ok or not name:
+        return
+
+    selected_items = song_list.selectedItems()
+    if not selected_items:
+        return
+
+    playlists[name] = [item.data(256) for item in selected_items]
+
+    print(f"Created playlist '{name}' with {len(playlists[name])} songs")
+
 
 
 # buttons
@@ -130,15 +188,31 @@ main_layout.addWidget(song_list)
 main_layout.addWidget(listening_label)
 main_layout.addLayout(control_layout)
 
-window.setLayout(main_layout)
+# CENTRAL WIDGET (THIS IS REQUIRED)
+central_widget = QWidget()
+central_widget.setLayout(main_layout)
+window.setCentralWidget(central_widget)
+
+toolbar = QToolBar("Main Toolbar")
+window.addToolBar(toolbar)
+
+theme_menu = QMenu(" Theme", window)
+
+for theme_name in themes:
+    action = QAction(theme_name, window)
+    action.triggered.connect(lambda checked, t=theme_name: apply_theme(t))
+    theme_menu.addAction(action)
+
+toolbar.addAction(theme_menu.menuAction())
+
+playlist_action = QAction("➕ Playlist", window)
+
+
+
 
 #style
 window.setStyleSheet("""
-QWidget {
-    background-color: #121212;
-    color: white;
-    font-family: Arial;
-}
+
 QLabel {
     font-size: 24px;
     font-weight: bold;
