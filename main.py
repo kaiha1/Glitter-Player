@@ -1,6 +1,7 @@
-import os
-import sys
 import vlc
+import os
+import json
+import sys
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
@@ -9,11 +10,15 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QMainWindow, QToolBar, QStatusBar, QInputDialog,
     QMenu
 )
+
 from PyQt6.QtCore import QTimer
 
 playlists = {}
 current_playlist = None 
+STATE_FILE = "player_state.json"
+current_theme = "Purpule"
 
+#top bar
 themes = {
     "Black": """
         QWidget { background-color: #121212; color: white; }
@@ -66,13 +71,13 @@ stop_btn = QPushButton("■ Stop")
 listening_label = QLabel("Listening time: 00:00:00")
 listening_label.setStyleSheet("font-size: 14px;")
 
-player = vlc.MediaPlayer()
-current_song_path = None
-
 listening_seconds = 0
 
 timer = QTimer()
 timer.setInterval(1000)  # 1 second
+
+autosave_timer = QTimer()
+autosave_timer.setInterval(1000)
 
 song_list = QListWidget()
 
@@ -91,6 +96,70 @@ def add_song():
         item.setData(256, file_path)
         song_list.addItem(item)
 
+    if files:
+        save_state()
+
+def save_state():
+    songs = []
+    for i in range(song_list.count()):
+        item = song_list.item(i)
+        songs.append(item.data(256))
+
+    state = {
+        "current_song": current_song_path,
+        "position": player.get_time(),
+        "listening_seconds": listening_seconds,
+        "playlists": playlists,
+        "songs": songs,
+        "theme": current_theme
+    }
+
+    with open(STATE_FILE, "w") as f:
+        json.dump(state, f)
+
+
+def load_state():
+    global current_song_path, listening_seconds, playlists
+
+    try:
+        with open(STATE_FILE, "r") as f:
+            state = json.load(f)
+
+        current_song_path = state.get("current_song")
+        listening_seconds = state.get("listening_seconds", 0)
+        playlists = state.get("playlists", {})
+
+        saved_theme = state.get("theme", "Black")
+        apply_theme(saved_theme)
+
+        # Restore songs in list
+        saved_songs = state.get("songs", [])
+        for file_path in saved_songs:
+            item = QListWidgetItem(os.path.basename(file_path))
+            item.setData(256, file_path)
+            song_list.addItem(item)
+
+
+        hours = listening_seconds // 3600
+        minutes = (listening_seconds % 3600) // 60 
+        seconds = listening_seconds % 60 
+        listening_label.setText(
+            f"Listening time: {hours:02d}:{minutes:02d}:{seconds:02d}"
+        )
+
+        if current_song_path:
+            media = vlc.Media(current_song_path)
+            player.set_media(media)
+            player.play()
+            player.set_time(state.get("position", 0))
+            player.pause()
+
+    except FileNotFoundError:
+        pass
+    except json.JSONDecodeError:
+        pass
+
+
 def play_song():
     global current_song_path
 
@@ -106,25 +175,34 @@ def play_song():
         player.set_media(media)
         current_song_path = file_path
     
-
-    
-
     player.play()
 
     if not timer.isActive():
         timer.start()
+
+    if not autosave_timer.isActive():
+        autosave_timer.start()
+
+    save_state()
        
 def pause_song():
     if player.is_playing():
         player.pause()
         timer.stop()
+        save_state()
 
 def stop_song():
     player.stop()
+    timer.stop()
+    autosave_timer.stop()
+    save_state()
 
 def apply_theme(name):
+    global current_theme
     if name in themes:
         window.setStyleSheet(themes[name])
+        current_theme = name
+        save_state()
 
 def update_listening_time():
     global listening_seconds
@@ -137,7 +215,9 @@ def update_listening_time():
     listening_label.setText(
         f"Listening time: {hours:02d}:{minutes:02d}:{seconds:02d}"
     )
+
 timer.timeout.connect(update_listening_time)
+autosave_timer.timeout.connect(save_state)
 
 def create_playlist():
     global playlists
@@ -159,7 +239,11 @@ def create_playlist():
 
     print(f"Created playlist '{name}' with {len(playlists[name])} songs")
 
+    save_state()
 
+def on_close():
+    save_state()
+    app.quit()
 
 # buttons
 add_song_btn.clicked.connect(add_song)
@@ -236,6 +320,10 @@ QListWidget {
     padding: 6px;
 }
 """)
+
+load_state()
+
+app.aboutToQuit.connect(on_close)
 
 # show the app window ;)
 window.show()
