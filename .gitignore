@@ -1,0 +1,23 @@
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore local state / data files
+player_state.json
+
+# Ignore virtual environment folders
+venv/
+env/
+.venv/
+.env/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore PyInstaller build 
+build/
+dist/
+*.spec
