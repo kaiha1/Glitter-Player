@@ -26,4 +26,4 @@ python main.py
 
 ⚠️ VLC must be installed on your system for Glitter Player to work.
 
-enjoy ヾ(＠⌒ー⌒＠)ノ
+enjoy :]
