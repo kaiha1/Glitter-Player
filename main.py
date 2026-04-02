@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QListWidget,
     QVBoxLayout, QHBoxLayout, QLabel, QFileDialog,
     QListWidgetItem, QMainWindow, QToolBar, QStatusBar, QInputDialog,
-    QMenu
+    QMenu, QSlider
 )
 
 from PyQt6.QtCore import QTimer
@@ -55,7 +55,18 @@ current_song_path = None
 
 app = QApplication(sys.argv)
 
-window = QMainWindow()
+class MainWindow(QMainWindow):
+    def closeEvent(self, event):
+        player.stop()
+        player.set_media(None)
+
+        global current_song_path
+        current_song_path = None 
+        
+        save_state()
+        event.accept()
+
+window = MainWindow()
 window.setWindowTitle("GlitterMusic")
 window.resize(900, 600)
 
@@ -150,9 +161,7 @@ def load_state():
         if current_song_path:
             media = vlc.Media(current_song_path)
             player.set_media(media)
-            player.play()
             player.set_time(state.get("position", 0))
-            player.pause()
 
     except FileNotFoundError:
         pass
@@ -270,7 +279,7 @@ main_layout.addWidget(title)
 main_layout.addLayout(top_layout)
 main_layout.addWidget(song_list)
 main_layout.addWidget(listening_label)
-main_layout.addLayout(control_layout)
+main_layout.addLayout(control_layout)   
 
 # CENTRAL WIDGET (THIS IS REQUIRED)
 central_widget = QWidget()
