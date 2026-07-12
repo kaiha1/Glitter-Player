@@ -27,3 +27,11 @@ python main.py
 ⚠️ VLC must be installed on your system for Glitter Player to work.
 
 enjoy :]
+
+
+
+##scrennshots
+
+![demo1](Screenshot-glitter-player.png)
+
+![demo2](glitter-player.png)
